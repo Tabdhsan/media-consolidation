@@ -5,5 +5,8 @@ QUICK_TEST
 QUICK_TEST_COPY
 MASTER
 media_consolidation_env
+media-consolidation-venv
 FlattenedFiles
+large_file_copy.mp4
+large_file.mp4
 __pycache__
