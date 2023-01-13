@@ -1,6 +1,8 @@
 from collections import defaultdict
+from datetime import datetime
 import hashlib
 import os
+from pprint import pprint
 import re
 import shutil
 import tkinter as tk
@@ -11,6 +13,7 @@ from hachoir.metadata import extractMetadata
 from PIL import Image
 from PIL.ExifTags import TAGS
 from helpers import timer, all_image_types, all_video_types, all_media_types
+import errno, os, stat, shutil
 
 ############ OS and SHUTIL Functions ############
 # Goes through all files in a folder
@@ -28,11 +31,24 @@ def os_walk(src, get_list=False):
     return res
 
 
+# Best way to remove files without getting permission errors
+def handleRemoveReadonly(func, path, exc):
+    excvalue = exc[1]
+    if func in (os.rmdir, os.remove) and excvalue.errno == errno.EACCES:
+        os.chmod(path, stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)  # 0777
+        func(path)
+    else:
+        raise
+
+
 def remove_empty_folders(src):
     walk = list(os.walk(src))
     for path, _, _ in walk[::-1]:
         if len(os.listdir(path)) == 0:
-            os.rmdir(path)
+            try:
+                shutil.rmtree(path, ignore_errors=False, onerror=handleRemoveReadonly)
+            except Exception as error:
+                print(f"Could not delete {path}", error)
 
 
 @timer
@@ -123,7 +139,7 @@ def separate_based_on_file_type(src):
     files = os_walk(src)
     count = 0
     for file in files:
-        file_extension = file.split(".")[-1]
+        file_extension = file.split(".")[-1].lower()
         if file_extension in all_media_types:
             item_to_dst(file, media_folder)
         else:
@@ -150,26 +166,42 @@ def get_file_hash(file):
     return file_hash
 
 
-def get_image_metadata(image):
-    image_name = image
-    image = Image.open(image_name)
-    exif_data = image.getexif()
+def getMediaModifiedDate(media):
+    return datetime.fromtimestamp(os.path.getmtime(media))
+
+
+def get_image_metadata(image_name):
+    PIL_image_instance = Image.open(image_name)
+    exif_data = PIL_image_instance.getexif()
     cur_image_info = {}
+    # NOTE: These are from the exif data and more tags can be found via for loop comment below
+    DATETIME_TAG = "DateTime"
+    DATETIME_TAG_ID = 306
+    """
     for tag_id in exif_data:
         tag = TAGS.get(tag_id, tag_id)
+        print(tag, tag_id)
         data = exif_data.get(tag_id)
+    """
+
+    try:
+        data = exif_data.get(DATETIME_TAG_ID)
         # Decode bytes
         if isinstance(data, bytes):
             data = data.decode()
-        cur_image_info[tag] = data
+        cur_image_info[DATETIME_TAG] = data
+    except:
+        # TODO: Might be an edge case issue that needs to be handled here
+        print("WE HIT EXCEPT")
     return cur_image_info
 
 
-def get_year_from_str(string, media_type):
+def get_year_from_str(raw_date_string, media_type):
+
     try:
-        date, time = string.split(" ")
+        date, time = raw_date_string.split(" ")
     except Exception as e:
-        return string
+        return raw_date_string
     if media_type == "image":
         year, month, day = date.split(":")
     else:
@@ -189,6 +221,10 @@ def get_video_file_metadata(file):
     )
     year = get_year_from_str(date_time, "video")
 
+    # TODO: Potential for error if getModifiedMedia ever returns null
+    if year == "1904":
+        year = str(getMediaModifiedDate(file))
+        year = year.replace("-", ":").split(":")[0]
     return year
 
 
@@ -196,13 +232,16 @@ def get_image_file_metadata(file):
     data = get_image_metadata(file)
     if "DateTime" in data and data["DateTime"] is not None:
         date_time = data["DateTime"]
+    elif getMediaModifiedDate(file):
+        date_time = str(getMediaModifiedDate(file))
+        date_time = date_time.replace("-", ":")
     else:
         date_time = "NO_DATE"
     return get_year_from_str(date_time, "image")
 
 
 def get_media_metadata(file):
-    file_extension = file.split(".")[-1]
+    file_extension = file.split(".")[-1].lower()
     if file_extension in all_video_types:
         return get_video_file_metadata(file)
     elif file_extension in all_image_types:
@@ -217,8 +256,8 @@ def get_all_years(src):
 
     for file in media_files:
         raw_year = get_media_metadata(file)
-        year = raw_year if raw_year != "1904" else "NO_DATE"
-        media_by_year[year].append(file)
+
+        media_by_year[raw_year].append(file)
 
     return media_by_year
 
@@ -236,7 +275,9 @@ def get_whatsapp_year(file_name):
 def get_screenshot_year(file_name):
     # Screenshot_20211203-150147_Settings
 
-    year = file_name.split("_")[1][:4]
+    match = bool(re.fullmatch(r"Screenshot_*-*_*", file_name))
+
+    year = file_name.split("_")[1][:4] if match else None
     return year
 
 
@@ -287,8 +328,6 @@ def all_types_cleanup(file_path, file_name, src):
         folder = f"{src}/{year}"
         create_folder(folder)
         item_to_dst(file_path, folder)
-    else:
-        print(f"{file_name} had cleanup issues")
 
 
 def no_date_folder_cleanup(no_date_folder, clean_folder):
@@ -315,6 +354,20 @@ def Media_Consolidation(all_media_source, all_media_copy):
 
     # all_media_source = ask_for_directory("Source")
     # all_media_copy = ask_for_directory("Destination")
+    # TESTING
+    try:
+        shutil.rmtree(
+            "./ALL_MEDIA_COPY", ignore_errors=False, onerror=handleRemoveReadonly
+        )
+    except Exception as error:
+        print(error)
+    try:
+        shutil.rmtree(
+            "./FlattenedFiles", ignore_errors=False, onerror=handleRemoveReadonly
+        )
+    except Exception as error:
+        print(error)
+    # TESTING
 
     create_directory_copy(all_media_source, all_media_copy)  ##This is only for testing
 
@@ -334,6 +387,6 @@ def Media_Consolidation(all_media_source, all_media_copy):
     remove_empty_folders(clean_folder)
 
 
-ALL_MEDIA_SRC = "./MASTER"
+ALL_MEDIA_SRC = "./test"
 ALL_MEDIA_COPY = "./ALL_MEDIA_COPY"
 Media_Consolidation(ALL_MEDIA_SRC, ALL_MEDIA_COPY)
