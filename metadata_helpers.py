@@ -115,7 +115,7 @@ def get_media_year(file):
 
 def get_all_years_dict(src) -> dict:
     """
-    Returns a dict {year:[files]}
+    Returns a dict { year:[files] }
 
     """
     print("------------Trying to get all years--------------")

@@ -86,8 +86,10 @@ def separate_based_on_file_type(src: str):
             item_to_dst(file, misc_folder, "separate_based_on_file_type--misc")
 
 
-# TODOTAB: Is this used?
 def create_folder_for_year_and_move_files(src: str, year_dict: dict):
+    """
+    Takes in the Media folder and creates a folder for each year
+    """
     for year, media_list in year_dict.items():
         year_folder = f"{src}/{year}"
         create_folder(year_folder)
