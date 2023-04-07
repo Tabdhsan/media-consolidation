@@ -2,9 +2,10 @@
 from os_helpers import create_folder, item_to_dst, os_walk
 import hashlib
 from constants import all_audio_types, all_image_types, all_media_types, all_video_types
-import magic
+from magic import Magic
 
-magic_mime = magic.Magic(mime=True)
+
+magic_mime = Magic(mime=True)
 
 
 def move_all_files_to_one_master_folder(src: str, dst: str) -> str:
