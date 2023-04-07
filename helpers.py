@@ -1,17 +1,3 @@
-import time
-
-
-def timer(func):
-    def wrapper(*args, **kwargs):
-        st = time.time()
-        func(*args, **kwargs)
-        et = time.time()
-        elapsed_time = et - st
-        print("Execution time:", time.strftime("%H:%M:%S", time.gmtime(elapsed_time)))
-
-    return wrapper
-
-
 all_image_types = set(
     [
         "ase",
@@ -145,7 +131,6 @@ all_video_types = set(
         "webm",
         "mkv",
         "flv",
-        "flv",
         "vob",
         "ogv ",
         "ogg",
@@ -192,5 +177,52 @@ all_video_types = set(
     ]
 )
 
+all_audio_types = set(
+    [
+        "3gp",
+        "aa",
+        "aac",
+        "aax",
+        "act",
+        "aiff",
+        "alac",
+        "amr",
+        "ape",
+        "au",
+        "awb",
+        "dss",
+        "dvf",
+        "flac",
+        "gsm",
+        "iklax",
+        "ivs",
+        "m4a",
+        "m4b",
+        "m4p",
+        "mmf",
+        "mp3",
+        "mpc",
+        "msv",
+        "nmf",
+        "ogg",
+        "oga",
+        "mogg",
+        "opus",
+        "ra",
+        "rm",
+        "raw",
+        "rf64",
+        "sln",
+        "tta",
+        "voc",
+        "vox",
+        "wav",
+        "wma",
+        "wv",
+        "webm",
+        "8svx",
+        "cda",
+    ]
+)
 
-all_media_types = all_image_types | all_video_types
+all_media_types = all_image_types | all_video_types | all_audio_types

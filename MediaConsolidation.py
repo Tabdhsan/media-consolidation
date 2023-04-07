@@ -1,74 +1,50 @@
-from collections import defaultdict
-from datetime import datetime
+import errno
 import hashlib
 import os
-from pprint import pprint
 import re
 import shutil
+import stat
 import tkinter as tk
+from collections import defaultdict
+from datetime import datetime, timezone
+from random import randint
 from tkinter.filedialog import askdirectory
 from xmlrpc.client import boolean
-from hachoir.parser import createParser
+
 from hachoir.metadata import extractMetadata
+from hachoir.parser import createParser
 from PIL import Image
 from PIL.ExifTags import TAGS
-from helpers import timer, all_image_types, all_video_types, all_media_types
-import errno, os, stat, shutil
 
-############ OS and SHUTIL Functions ############
-# Goes through all files in a folder
-def os_walk(src, get_list=False):
-    res = []
-    for root, dirs, files in os.walk(src):
-        for name in files:
-            # Either appends the filePath or [filePath, fileName]
-            file = (
-                os.path.join(root, name)
-                if not get_list
-                else [os.path.join(root, name), name]
-            )
-            res.append(file)
-    return res
+from helpers import all_audio_types, all_image_types, all_media_types, all_video_types
 
-
-# Best way to remove files without getting permission errors
-def handleRemoveReadonly(func, path, exc):
-    excvalue = exc[1]
-    if func in (os.rmdir, os.remove) and excvalue.errno == errno.EACCES:
-        os.chmod(path, stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)  # 0777
-        func(path)
-    else:
-        raise
-
-
-def remove_empty_folders(src):
-    walk = list(os.walk(src))
-    for path, _, _ in walk[::-1]:
-        if len(os.listdir(path)) == 0:
-            try:
-                shutil.rmtree(path, ignore_errors=False, onerror=handleRemoveReadonly)
-            except Exception as error:
-                print(f"Could not delete {path}", error)
-
-
-@timer
-# Optimization: Can be run conditionally based on whether checked in GUI
-def create_directory_copy(src, dst):
-    shutil.copytree(src, dst)
-
-
-def create_folder(path):
-    if not os.path.exists(path):
-        os.makedirs(path)
+ERROR_FOLDER = "./FlattenedFiles/ERRORS"
 
 
 # SRC can be a folder OR a file
-def item_to_dst(src, dst):
+def item_to_dst(src, dst, debug_info):
+    with open("example.txt", "a") as file:
+        file.write(f"\n{dst}")
+
+    newRandom = int(datetime.now(timezone.utc).timestamp())
     try:
-        shutil.move(src, dst)
+        shutil.move(src, f"{dst}_{newRandom}")
     except Exception as e:
-        # Often error if file is duplicate/already exists in dst
-        print(e)
+        # Often error if file name is duplicate/already exists in dst
+        # TODOTAB: Look at what can be done about this error
+        # print(e)
+        # print("SRC---->", src)
+        # print("DST---->", dst)
+
+        shutil.move(src, f"{dst}_{newRandom}")
+        # try:
+        #     newRandom = int(datetime+.now(timezone.utc).timestamp())
+
+        #     shutil.move(src, f"{dst}_{newRandom}")
+        # except Exception as e:
+        #     print(e)
+        #     exit()
+        #     print("WE HIT AN ERROR IN ITEM TO DST")
 
 
 def get_folder_size(folder):
@@ -107,24 +83,39 @@ def move_all_files_to_one_master_folder(src, dst):
         hashes[file_hash] = hashes.get(file_hash, 0) + 1
 
         if hashes[file_hash] == 1:
-            item_to_dst(file, clean_folder)
+            item_to_dst(file, clean_folder, "From move all files to master TOP")
             count += 1
             if not count % 300:
                 print(f"{count} Files Moved")
 
         else:
+            # We are in duplicate territory
             dup_count += 1
             cur_count = hashes[file_hash]
-            file_pieces = file.split(".")
-            file_type = file_pieces[-1]
-            file_name = file_pieces[-2].split("\\")[-1]
-            new_name = f"{dup_folder}/{file_name}_{cur_count}.{file_type}"
-            item_to_dst(file, new_name)
+
+            if file.count(".") > 1 < file.count("."):
+                split_arr = file.split("\\")
+                last_part = split_arr[-1]
+                new_name = f"{dup_folder}/{last_part}_{cur_count}"
+
+            else:
+                # Only one . (Normal file name)
+                try:
+                    file_pieces = file.split(".")
+                    file_name = file_pieces[-2].split("\\")[-1]
+                    file_type = f".{file_pieces[-1]}"
+                    new_name = f"{dup_folder}/{file_name}_{cur_count}{file_type}"
+                except:
+                    split_arr = file.split("\\")
+                    last_part = split_arr[-1]
+                    new_name = f"{dup_folder}/{last_part}_{cur_count}"
+
+            item_to_dst(file, new_name, "from all files to master BOT")
 
     print(f"{count} UNIQUE moved")
     print(f"{dup_count} DUPS moved")
     print("-------------------------")
-    # Returns path to clean_folder for next function
+    # Returns path to clean_folder/Media for next function
     return clean_folder
 
 
@@ -133,18 +124,38 @@ def separate_based_on_file_type(src):
     print("-----About to separate files based on type-----")
     media_folder = f"{src}/Media"
     misc_folder = f"{src}/Misc"
+    # audio_folder = f"{src}/Misc/Audio"
     create_folder(media_folder)
+    # create_folder(audio_folder)
     create_folder(misc_folder)
 
     files = os_walk(src)
-    count = 0
     for file in files:
         file_extension = file.split(".")[-1].lower()
-        if file_extension in all_media_types:
-            item_to_dst(file, media_folder)
+        if file_extension in all_audio_types or file_extension not in all_media_types:
+            item_to_dst(file, misc_folder, "from separate on file type")
+            continue
+
+        if file_extension in all_video_types or file_extension in all_image_types:
+            item_to_dst(file, media_folder, "from separate on file type")
+            continue
+
+
+def separate_misc_based_on_file_type(src):
+    files = os_walk(src)
+    extension_set = set()
+    audio_folder = f"{src}/AUDIO"
+    create_folder(audio_folder)
+    for file in files:
+        extension = file.split(".")[-1] if len(file.split(".")) > 1 else "other"
+        if extension in all_audio_types:
+            item_to_dst(file, audio_folder, "from separate misc")
         else:
-            item_to_dst(file, misc_folder)
-        count += 1
+            folder_name = f"{src}/{extension}"
+            if extension not in extension_set:
+                create_folder(folder_name)
+                extension_set.add(extension)
+            item_to_dst(file, folder_name, "from separate misc")
 
 
 def create_folder_for_year_and_move_files(src, year_dict):
@@ -153,7 +164,7 @@ def create_folder_for_year_and_move_files(src, year_dict):
         folder = f"{src}/{year}"
         create_folder(folder)
         for file in img_list:
-            item_to_dst(file, folder)
+            item_to_dst(file, folder, "from create fodler year")
 
 
 ############ Get Hash and File Info Functions ############
@@ -191,8 +202,9 @@ def get_image_metadata(image_name):
             data = data.decode()
         cur_image_info[DATETIME_TAG] = data
     except:
+
         # TODO: Might be an edge case issue that needs to be handled here
-        print("WE HIT EXCEPT")
+        print("WE HIT EXCEPT in get image metadata")
     return cur_image_info
 
 
@@ -213,31 +225,43 @@ def get_video_file_metadata(file):
     parser = createParser(file)
     with parser:
         metadata = extractMetadata(parser)
-    all_data = metadata.exportDictionary()["Metadata"]
-    date_time = (
-        all_data["Date-time original"]
-        if "Date-time original" in all_data
-        else all_data["Creation date"]
-    )
-    year = get_year_from_str(date_time, "video")
+    try:
+        all_data = metadata.exportDictionary()["Metadata"]
+        date_time = (
+            all_data["Date-time original"]
+            if "Date-time original" in all_data
+            else all_data["Creation date"]
+        )
+        year = get_year_from_str(date_time, "video")
+        # TODO: Potential for error if getModifiedMedia ever returns null
+        if year == "1904":
+            year = str(getMediaModifiedDate(file))
+            year = year.replace("-", ":").split(":")[0]
 
-    # TODO: Potential for error if getModifiedMedia ever returns null
-    if year == "1904":
-        year = str(getMediaModifiedDate(file))
-        year = year.replace("-", ":").split(":")[0]
-    return year
+        return year
+    except Exception as error:
+        # print("moving file to error folder", file)
+        # item_to_dst(file, f"{ERROR_FOLDER}/file")
+        return "NO_DATE"
 
 
 def get_image_file_metadata(file):
-    data = get_image_metadata(file)
-    if "DateTime" in data and data["DateTime"] is not None:
-        date_time = data["DateTime"]
-    elif getMediaModifiedDate(file):
-        date_time = str(getMediaModifiedDate(file))
-        date_time = date_time.replace("-", ":")
-    else:
+    try:
+        data = get_image_metadata(file)
+        if "DateTime" in data and data["DateTime"] is not None:
+            date_time = data["DateTime"]
+        elif getMediaModifiedDate(file):
+            date_time = str(getMediaModifiedDate(file))
+            date_time = date_time.replace("-", ":")
+        else:
+            date_time = "NO_DATE"
+        return get_year_from_str(date_time, "image")
+    except:
+        # print("moving file to error folder")
+        # item_to_dst(file, f"{ERROR_FOLDER}/file")
+        # print("WE IN EXCEPT")
         date_time = "NO_DATE"
-    return get_year_from_str(date_time, "image")
+        return get_year_from_str(date_time, "image")
 
 
 def get_media_metadata(file):
@@ -251,11 +275,16 @@ def get_media_metadata(file):
 
 
 def get_all_years(src):
+    print("------------Trying to get all years--------------")
     media_files = os_walk(src)
     media_by_year = defaultdict(list)
 
     for file in media_files:
+        # print(file)
         raw_year = get_media_metadata(file)
+        # Cleanup if it is 2013-09-28T00:42:42-17:00
+        if raw_year and raw_year != "NO_DATE" and len(raw_year) > 4:
+            raw_year = raw_year[0:4]
 
         media_by_year[raw_year].append(file)
 
@@ -327,7 +356,7 @@ def all_types_cleanup(file_path, file_name, src):
     if file_type and year:
         folder = f"{src}/{year}"
         create_folder(folder)
-        item_to_dst(file_path, folder)
+        item_to_dst(file_path, folder, "from all type clean")
 
 
 def no_date_folder_cleanup(no_date_folder, clean_folder):
@@ -348,7 +377,7 @@ def ask_for_directory(directory_type):
 
 
 @timer
-def Media_Consolidation(all_media_source, all_media_copy):
+def Media_Consolidation(all_media_source, all_media_copy, flattened_files):
 
     ### Create a copy of the Master Folder ###
 
@@ -360,33 +389,54 @@ def Media_Consolidation(all_media_source, all_media_copy):
             "./ALL_MEDIA_COPY", ignore_errors=False, onerror=handleRemoveReadonly
         )
     except Exception as error:
-        print(error)
+        print("SHUTIL rmTree error ALL_MEDIA_COPY", error)
     try:
         shutil.rmtree(
             "./FlattenedFiles", ignore_errors=False, onerror=handleRemoveReadonly
         )
     except Exception as error:
-        print(error)
+        print("SHUTIL rmTree error FlattenedFiles", error)
+
     # TESTING
 
-    create_directory_copy(all_media_source, all_media_copy)  ##This is only for testing
+    print("Creating copy of all files")
+    # create_directory_copy(all_media_source, all_media_copy)  ##This is only for testing
 
-    ### Organizes files into Media and Misc ###
-    flattened_files = "./FlattenedFiles"
-    # all_media_copy = ask_for_directory("Destination")
-    clean_folder = move_all_files_to_one_master_folder(all_media_copy, flattened_files)
-    remove_empty_folders(all_media_copy)
-    separate_based_on_file_type(clean_folder)
+    # ### Organizes files into Media and Misc ###
 
-    ### Organize by year ###
-    year_dict = get_all_years(clean_folder)
-    create_folder_for_year_and_move_files(clean_folder, year_dict)
-    no_date_folder = f"{clean_folder}/NO_DATE"
+    # clean_folder = move_all_files_to_one_master_folder(all_media_copy, flattened_files)
+    # remove_empty_folders(all_media_copy)
 
-    no_date_folder_cleanup(no_date_folder, clean_folder)
-    remove_empty_folders(clean_folder)
+    # TODOTAB: Working without copies here, BE CAREFUL
+    clean_folder = move_all_files_to_one_master_folder(
+        all_media_source, flattened_files
+    )
+    # remove_empty_folders(all_media_source)
+
+    # separate_based_on_file_type(clean_folder)
+
+    # ### Organize by year ###
+    # year_dict = get_all_years(f"{clean_folder}/Media")
+    # create_folder_for_year_and_move_files(f"{clean_folder}/Media", year_dict)
+
+    # no_date_folder = f"{clean_folder}/NO_DATE"
+    # no_date_folder_cleanup(no_date_folder, clean_folder)
+    # remove_empty_folders(clean_folder)
+
+    # ### Cleanup of Misc Folder ###
+    misc_folder = f"{clean_folder}/MISC"
+    # separate_misc_based_on_file_type(misc_folder)
 
 
-ALL_MEDIA_SRC = "./test"
-ALL_MEDIA_COPY = "./ALL_MEDIA_COPY"
-Media_Consolidation(ALL_MEDIA_SRC, ALL_MEDIA_COPY)
+ALL_MEDIA_SRC = "D:\\ALL_PARENT_MEDIA\\FOLDERS"
+ALL_MEDIA_COPY = "D:\\ALL_PARENT_MEDIA\\ALL_MEDIA_COPY"
+
+# Used so flattened_files always has a new number
+random = int(datetime.now(timezone.utc).timestamp())
+FLATTENED_FILES = f"D:\\ALL_PARENT_MEDIA\\FLATTENED_FILES_{random}"
+
+
+Media_Consolidation(ALL_MEDIA_SRC, ALL_MEDIA_COPY, FLATTENED_FILES)
+create_folder(ALL_MEDIA_SRC)
+
+# TODOTAB: Need function to turn clean/Misc folder -> multiple folders by extensions
