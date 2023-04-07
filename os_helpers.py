@@ -80,7 +80,7 @@ def item_to_dst(src: str, dst: str, error_function_name: str = ""):
     """
     try:
         time_stamp = int(datetime.now(timezone.utc).timestamp())
-        shutil.move(src, f"{dst}_{time_stamp}")
+        shutil.move(src, dst)
     except Exception as e:
         print()
         print("--ERROR--", "FUNCTION:", error_function_name)

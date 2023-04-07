@@ -42,9 +42,9 @@ def get_image_year(image_file: str) -> object:
     Returns
             {datetime: year:month:day}
     """
+
     PIL_image_instance = Image.open(image_file)
     exif_data = PIL_image_instance.getexif()
-    cur_image_info = {}
 
     DATETIME_TAG_ID = 306
     """
@@ -60,26 +60,21 @@ def get_image_year(image_file: str) -> object:
         date_bytes = exif_data.get(DATETIME_TAG_ID)
         if date_bytes:
             # 2015:06:06 16:08:32
-            date = date_bytes.split(" ")[0]
+            year = date_bytes[:4]
         else:
-            date = get_earliest_date_time(image_file)
-
-        cur_image_info["date"] = date
+            year = get_earliest_date_time(image_file)[:4]
 
     except Exception as e:
-        print()
-        print("WE HIT EXCEPT in get image metadata")
-        print(e)
-        # TODO: Might be an edge case issue that needs to be handled here
-        print()
-    return cur_image_info
+        print("\n WE HIT EXCEPT in get image metadata")
+        print(f"e \n")
+
+    return year
 
 
 def get_video_year(file):
     parser = createParser(file)
     with parser:
         metadata = extractMetadata(parser)
-
     try:
         all_data = metadata.exportDictionary()["Metadata"]
         date_time = (
@@ -89,28 +84,23 @@ def get_video_year(file):
         )
         year = get_year_from_string(date_time)
 
-        # TODOTAB: Handle this later
-        # if year == "1904":
-        #     year = str(getMediaModifiedDate(file))
-        #     year = year.replace("-", ":").split(":")[0]
+        if year == 1904:
+            year = get_earliest_date_time(file)[:4]
 
         return year
     except Exception as error:
-        print(error)
-        # TODOTAB: Get error folder logic
-        # print("moving file to error folder", file)
-        # item_to_dst(file, f"{ERROR_FOLDER}/file")
-        return "NO_DATE"
+        print("in error")
+        return get_earliest_date_time(file)[:4]
 
 
 def get_media_year(file):
     file_type = magic_mime.from_file(file)
-    if file_type == "video":
-        return get_media_year(file)
-    elif file_type in "image":
+    if file_type.startswith("video"):
+        return get_video_year(file)
+    elif file_type.startswith("image"):
         return get_image_year(file)
     else:
-        print("file_type was weird", file_type)
+        return "WEIRD"
 
 
 def get_all_years_dict(src) -> dict:
