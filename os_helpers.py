@@ -1,4 +1,5 @@
 import errno, os, stat, shutil
+from datetime import datetime, timezone
 
 
 def os_walk(src: str, get_list: bool = False) -> list:
@@ -12,7 +13,7 @@ def os_walk(src: str, get_list: bool = False) -> list:
     :return: [filePath ...] or [[filePath, fileName]...]
     """
     res = []
-    for root, dirs, files in os.walk(src):
+    for root, _, files in os.walk(src):
         for name in files:
             # Either appends the filePath or [filePath, fileName]
             file = (
@@ -40,6 +41,7 @@ def handle_remove_read_only(func, path, exc):
         raise
 
 
+# TODOTAB: Might not even be used
 def remove_empty_folders(src: str):
     """
     Removes all empty folders and accounts for errors as well via "handle_remove_read_only"
@@ -60,6 +62,38 @@ def create_directory_copy(src: str, dst: str):
     shutil.copytree(src, dst)
 
 
-def create_folder(path):
+def create_folder(path: str):
     if not os.path.exists(path):
         os.makedirs(path)
+
+
+def item_to_dst(src: str, dst: str, error_function_name: str = ""):
+    """
+        Moves a file or folder to a new location
+        Adds a timestamp on the end to make sure the file is unique
+
+    ARGS:
+        src can be a folder or a file
+        dst is a string for the dst location
+        error_function_name is where the helper function was used (for debugging)
+
+    """
+    try:
+        time_stamp = int(datetime.now(timezone.utc).timestamp())
+        shutil.move(src, f"{dst}_{time_stamp}")
+    except Exception as e:
+        print()
+        print("--ERROR--", "FUNCTION:", error_function_name)
+        print(e)
+        print()
+
+
+# TODOTAB: Might not even be used
+def get_folder_size(folder):
+    size = 0
+    for path, _, files in os.walk(folder):
+        for f in files:
+            fp = os.path.join(path, f)
+            size += os.path.getsize(fp)
+
+    return size
