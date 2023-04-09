@@ -68,9 +68,40 @@ def create_folder(path: str):
         os.makedirs(path)
 
 
+def create_dst_path(src, dst, dup_count=0):
+    # Timestamp logic is to avoid overwriting files with the same name
+    time_stamp = int(datetime.now(timezone.utc).timestamp())
+    random_digit = random.randint(0, 99999999)
+
+    # E:/folder/subfolder/20220604_220000.mp4" -> 20220604_220000.mp4
+    base_file_name = os.path.basename(src)
+    name, ext = os.path.splitext(base_file_name)
+
+    dup_str = f"{dup_count}_" if dup_count else ""
+    new_name = f"{dup_str}{name}_{time_stamp + random_digit}{ext}"
+    new_path = os.path.join(dst, new_name)
+    # print(new_path)
+
+    print("new_path", new_path)
+    return new_path
+
+    # TODOTAB: Get better way to randomize and add logic when to randomize
+
+    # directory, file_name = os.path.split(src)
+    # name, ext = os.path.splitext(file_name)
+    # new_name = (
+    #     f"{dup_count if dup_count else ''}{name}_{time_stamp}_{random_digit}{ext}"
+    # )
+    # new_path = os.path.join(dst, new_name)
+
+    # return new_path
+
+
 def item_to_dst(src: str, dst: str, error_function_name: str = ""):
     """
         Moves a file or folder to a new location
+        SRC can be a file or a folder
+        DST is a file
         Adds a timestamp on the end to make sure the file is unique
 
     ARGS:
@@ -80,28 +111,7 @@ def item_to_dst(src: str, dst: str, error_function_name: str = ""):
 
     """
     try:
-        # Timestamp logic is to avoid overwriting files with the same name
-        # TODOTAB: Get better way to randomize
-        time_stamp = int(datetime.now(timezone.utc).timestamp())
-        random_digit = random.randint(0, 99999999)
-
-        directory, file_name = os.path.split(dst)
-        name, ext = os.path.splitext(file_name)
-
-        # # Add the timestamp to the file name
-        new_name = f"{name}_{time_stamp}_{random_digit}{ext}"
-
-        # Create the new file path
-        new_path = os.path.join(directory, new_name)
-        # i = 0
-        # print(dst)
-        # while os.path.exists(dst):
-        #     directory, file_name = os.path.split(dst)
-        #     name, ext = os.path.splitext(file_name)
-        #     dst = f"{name}_{i}{ext}"
-        #     i += 1
-
-        shutil.move(src, new_path)
+        shutil.move(src, dst)
     except Exception as e:
         print()
         print("--ERROR--", "FUNCTION:", error_function_name)

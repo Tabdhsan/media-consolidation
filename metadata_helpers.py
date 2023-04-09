@@ -89,7 +89,9 @@ def get_video_year(file):
 
         return year
     except Exception as error:
-        print("in error")
+        print("in error", error)
+        print("file that errored", file)
+
         return get_earliest_date_time(file)[:4]
 
 

@@ -26,17 +26,16 @@ def file_count(folder):
 def Media_Consolidation(src, dst):
     # Move all files into a new flat folder separated by UNIQUE and DUPS
     src_count = file_count(src)
-    move_all_files_to_one_master_folder(src, dst)
-    dst_count = file_count(FLAT_FOLDER)
+    # move_all_files_to_one_master_folder(src, dst)
+    # dst_count = file_count(FLAT_FOLDER)
     print(src_count)
-    print(dst_count)
+    # print(dst_count)
 
     clean_folder = f"{dst}/UNIQUE"
 
     # # Separate into Media and Misc
     print("-------ABT TO SEPARATE INTO MEDIA AND MISC-------")
-    separate_based_on_file_type(clean_folder)
-    quit()
+    # separate_based_on_file_type(clean_folder)
     # Organize files strings by year -> {year :[files]}
     all_years_and_media = get_all_years_dict(clean_folder)
 
