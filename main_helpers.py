@@ -32,7 +32,7 @@ def move_all_files_to_one_master_folder(src: str, dst: str) -> str:
     hashes = {}
     unique_count = 0
     dup_count = 0
-
+    # res = {}
     for file in files:
 
         # E:/folder/subfolder/20220604_220000.mp4" -> 20220604_220000.mp4
@@ -43,32 +43,41 @@ def move_all_files_to_one_master_folder(src: str, dst: str) -> str:
 
         # This means this is the first time we've seen the file
         if hashes[file_hash] == 1:
-            new_name = f"{clean_folder}/{base_file_name}"
+            unique_file_name = f"{clean_folder}/{base_file_name}"
             item_to_dst(
                 file,
-                new_name,
+                unique_file_name,
                 "move_all_files_to_one_master_folder--if hashes[file_hash] == 1",
             )
             unique_count += 1
-            if not unique_count % 300:
-                print(f"{unique_count} Files Moved")
+            # if not unique_count % 300:
+            #     print(f"{unique_count} Files Moved")
+            # res[unique_file_name] = res.get(unique_file_name, 0) + 1
 
         else:
             # We are in duplicate territory
-            dup_count += 1
             cur_count = hashes[file_hash]
 
-            new_name = f"{dup_folder}/__{cur_count}__{base_file_name}"
+            dup_file_name = f"{dup_folder}/__{cur_count}__{base_file_name}"
 
             item_to_dst(
-                file, new_name, "move_all_files_to_one_master_folder--else statement"
+                file,
+                dup_file_name,
+                "move_all_files_to_one_master_folder--else statement",
             )
+            dup_count += 1
+    #         res[dup_file_name] = res.get(dup_file_name, 0) + 1
+    # for item, count in res.items():
+    #     if count > 1:
+    #         print(item, count)
+    # print("RESLEN", len(res))
 
     print(f"{unique_count} UNIQUE moved")
     print(f"{dup_count} DUPS moved")
+    print(f"{dup_count+unique_count} total moved")
     print("-------------------------")
     # Returns path to clean_folder for next function
-    return clean_folder
+    # return clean_folder
 
 
 def separate_based_on_file_type(src: str):

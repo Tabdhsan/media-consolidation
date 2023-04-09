@@ -1,4 +1,5 @@
 import errno, os, stat, shutil
+import random
 from datetime import datetime, timezone
 
 
@@ -79,8 +80,28 @@ def item_to_dst(src: str, dst: str, error_function_name: str = ""):
 
     """
     try:
+        # Timestamp logic is to avoid overwriting files with the same name
+        # TODOTAB: Get better way to randomize
         time_stamp = int(datetime.now(timezone.utc).timestamp())
-        shutil.move(src, dst)
+        random_digit = random.randint(0, 99999999)
+
+        directory, file_name = os.path.split(dst)
+        name, ext = os.path.splitext(file_name)
+
+        # # Add the timestamp to the file name
+        new_name = f"{name}_{time_stamp}_{random_digit}{ext}"
+
+        # Create the new file path
+        new_path = os.path.join(directory, new_name)
+        # i = 0
+        # print(dst)
+        # while os.path.exists(dst):
+        #     directory, file_name = os.path.split(dst)
+        #     name, ext = os.path.splitext(file_name)
+        #     dst = f"{name}_{i}{ext}"
+        #     i += 1
+
+        shutil.move(src, new_path)
     except Exception as e:
         print()
         print("--ERROR--", "FUNCTION:", error_function_name)
