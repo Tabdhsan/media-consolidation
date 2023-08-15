@@ -179,7 +179,6 @@ all_video_types = set(
 
 all_audio_types = set(
     [
-        ".3gp",
         ".aa",
         ".aac",
         ".aax",
@@ -225,6 +224,23 @@ all_audio_types = set(
     ]
 )
 
-types_to_ignore = set([".bin", ".thumb", ".tmp"])
+types_to_ignore = set(
+    [
+        ".bin",
+        ".thumb",
+        ".dthumb",
+        ".tmp",
+        ".cnt",
+        ".0_playback",
+        ".raw",
+        ".amr",
+        ".opus",
+        ".crypt1",
+        ".crypt12",
+        ".aac",
+        ".psd",
+        ".exo",
+    ]
+)
 
 all_media_types = all_image_types | all_video_types | all_audio_types

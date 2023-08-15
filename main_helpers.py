@@ -3,7 +3,7 @@ import os
 import re
 from os_helpers import create_folder, create_dst_path, item_to_dst, os_walk
 import hashlib
-from constants import all_media_types, types_to_ignore
+from constants import all_media_types, types_to_ignore, all_audio_types
 from magic import Magic
 
 
@@ -26,15 +26,14 @@ def move_all_files_to_one_master_folder(src: str, dst: str) -> str:
     create_folder(dup_folder)
 
     files = os_walk(src)
-    print(f"------About to move all files from {src} to {dst} ------")
+    # print(f"------About to move all files from {src} to {dst} ------")
 
     # Hashing is used to check for duplicates
     hashes = {}
     total_unique_count = 0
     total_dup_count = 0
-    # res = {}
+    i = 0
     for file in files:
-
         # Optimization: Might be able to use less mem up by only checking parts of a hash?
         file_hash = hashlib.sha1(open(file, "rb").read()).hexdigest()
         hashes[file_hash] = hashes.get(file_hash, 0) + 1
@@ -44,7 +43,7 @@ def move_all_files_to_one_master_folder(src: str, dst: str) -> str:
             dst = f"{unique_folder}/"
             item_to_dst(
                 file,
-                create_dst_path(file, unique_folder),
+                unique_folder,
                 "move_all_files_to_one_master_folder--if hashes[file_hash] == 1",
             )
             total_unique_count += 1
@@ -54,26 +53,29 @@ def move_all_files_to_one_master_folder(src: str, dst: str) -> str:
 
         else:
             # We are in duplicate territory
-            dup_count = hashes[file_hash]
-
+            # dup_count = hashes[file_hash]
             # dup_file_name = f"{dup_folder}/__{cur_count}__{base_file_name}"
 
             item_to_dst(
                 file,
-                create_dst_path(file, dup_folder, dup_count),
+                dup_folder,
                 "move_all_files_to_one_master_folder--else statement",
             )
             total_dup_count += 1
+
+        i += 1
+        if not i % 300:
+            print(f"{i} files done")
     #         res[dup_file_name] = res.get(dup_file_name, 0) + 1
     # for item, count in res.items():
     #     if count > 1:
     #         print(item, count)
     # print("RESLEN", len(res))
 
-    print(f"{total_unique_count} UNIQUE moved")
-    print(f"{total_dup_count} DUPS moved")
-    print(f"{total_dup_count+total_unique_count} total moved")
-    print("-------------------------")
+    print(f"{total_unique_count} unique files moved")
+    print(f"{total_dup_count} duplicate files moved")
+    print(f"{total_dup_count+total_unique_count} total files moved")
+    print("")
     # Returns path to clean_folder for next function
     # return clean_folder
 
@@ -86,16 +88,27 @@ def separate_based_on_file_type(src: str):
     File_extension picks up any media the MIME missed b/c it got a default result "application/octet-stream"
 
     """
-    media_folder, misc_folder = f"{src}/Media/", f"{src}/Misc/"
+    media_folder, misc_folder, audio_folder = (
+        f"{src}/Media/",
+        f"{src}/Misc/",
+        f"{src}/Audio/",
+    )
     create_folder(media_folder)
     create_folder(misc_folder)
+    create_folder(audio_folder)
 
     files = os_walk(src)
     i = 0
     for file in files:
-        file_type = magic_mime.from_file(file)
+        try:
+            file_type = magic_mime.from_file(file)
+        except Exception as e:
+            file_type = "error"
+            print("-------")
+            print(e, file)
+            print("-------")
         file_extension = os.path.splitext(file)[1]
-
+        # Optimization: Separate audio and pdfs
         if (
             file_extension
             and file_extension not in types_to_ignore
@@ -107,15 +120,21 @@ def separate_based_on_file_type(src: str):
                 or file_extension in all_media_types
             )
         ):
+            dst_folder = (
+                media_folder
+                if not file_type.startswith("audio")
+                and file_extension not in all_audio_types
+                else audio_folder
+            )
             item_to_dst(
                 file,
-                create_dst_path(file, media_folder),
+                dst_folder,
                 "separate_based_on_file_type--image or video or audio",
             )
         else:
             item_to_dst(
                 file,
-                create_dst_path(file, misc_folder),
+                misc_folder,
                 "separate_based_on_file_type--misc",
             )
         i += 1

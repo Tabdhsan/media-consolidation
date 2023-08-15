@@ -9,6 +9,7 @@ from PIL import Image
 from magic import Magic
 
 from os_helpers import os_walk
+from constants import all_video_types, all_image_types
 
 
 magic_mime = Magic(mime=True)
@@ -43,20 +44,20 @@ def get_image_year(image_file: str) -> object:
             {datetime: year:month:day}
     """
 
-    PIL_image_instance = Image.open(image_file)
-    exif_data = PIL_image_instance.getexif()
-
-    DATETIME_TAG_ID = 306
-    """
-    These are from the exif data and more tags can be found via for loop comment below
-    DATETIME_TAG_ID = 306 
-    TODOTAB: This might be getting just modified date anyway.
-    TODOTAB: Look for other options like dateTaken
-    for tag_id in exif_data:
-        tag = TAGS.get(tag_id, tag_id)
-        print(tag, tag_id)
-    """
     try:
+        PIL_image_instance = Image.open(image_file)
+        exif_data = PIL_image_instance.getexif()
+
+        DATETIME_TAG_ID = 306
+        """
+        These are from the exif data and more tags can be found via for loop comment below
+        DATETIME_TAG_ID = 306 
+        TODOTAB: This might be getting just modified date anyway.
+        TODOTAB: Look for other options like dateTaken
+        for tag_id in exif_data:
+            tag = TAGS.get(tag_id, tag_id)
+            print(tag, tag_id)
+        """
         date_bytes = exif_data.get(DATETIME_TAG_ID)
         if date_bytes:
             # 2015:06:06 16:08:32
@@ -64,18 +65,19 @@ def get_image_year(image_file: str) -> object:
         else:
             year = get_earliest_date_time(image_file)[:4]
 
+        return year
+
     except Exception as e:
         print("\n WE HIT EXCEPT in get image metadata")
-        print(f"e \n")
-
-    return year
+        print(f"{e} \n")
+        print(f"FILE: {image_file}")
 
 
 def get_video_year(file):
     parser = createParser(file)
-    with parser:
-        metadata = extractMetadata(parser)
     try:
+        with parser:
+            metadata = extractMetadata(parser)
         all_data = metadata.exportDictionary()["Metadata"]
         date_time = (
             all_data["Date-time original"]
@@ -97,9 +99,10 @@ def get_video_year(file):
 
 def get_media_year(file):
     file_type = magic_mime.from_file(file)
-    if file_type.startswith("video"):
+    file_ext = os.path.splitext(file)[1]
+    if file_type.startswith("video") or file_ext in all_video_types:
         return get_video_year(file)
-    elif file_type.startswith("image"):
+    elif file_type.startswith("image") or file_ext in all_image_types:
         return get_image_year(file)
     else:
         return "WEIRD"
@@ -110,7 +113,7 @@ def get_all_years_dict(src) -> dict:
     Returns a dict { year:[files] }
 
     """
-    print("------------Trying to get all years--------------")
+    # print("------------Trying to get all years--------------")
     media_files = os_walk(src)
     media_by_year = defaultdict(list)
 

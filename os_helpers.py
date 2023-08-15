@@ -1,6 +1,7 @@
 import errno, os, stat, shutil
 import random
 from datetime import datetime, timezone
+import time
 
 
 def os_walk(src: str, get_list: bool = False) -> list:
@@ -69,35 +70,10 @@ def create_folder(path: str):
 
 
 def create_dst_path(src, dst, dup_count=0):
-    # Timestamp logic is to avoid overwriting files with the same name
-    time_stamp = int(datetime.now(timezone.utc).timestamp())
-    random_digit = random.randint(0, 99999999)
-
-    # E:/folder/subfolder/20220604_220000.mp4" -> 20220604_220000.mp4
-    base_file_name = os.path.basename(src)
-    name, ext = os.path.splitext(base_file_name)
-
-    dup_str = f"{dup_count}_" if dup_count else ""
-    new_name = f"{dup_str}{name}_{time_stamp + random_digit}{ext}"
-    new_path = os.path.join(dst, new_name)
-    # print(new_path)
-
-    print("new_path", new_path)
-    return new_path
-
-    # TODOTAB: Get better way to randomize and add logic when to randomize
-
-    # directory, file_name = os.path.split(src)
-    # name, ext = os.path.splitext(file_name)
-    # new_name = (
-    #     f"{dup_count if dup_count else ''}{name}_{time_stamp}_{random_digit}{ext}"
-    # )
-    # new_path = os.path.join(dst, new_name)
-
-    # return new_path
+    pass
 
 
-def item_to_dst(src: str, dst: str, error_function_name: str = ""):
+def item_to_dst(src_file: str, dst_folder: str, error_function_name: str = ""):
     """
         Moves a file or folder to a new location
         SRC can be a file or a folder
@@ -111,10 +87,32 @@ def item_to_dst(src: str, dst: str, error_function_name: str = ""):
 
     """
     try:
-        shutil.move(src, dst)
+        # print()
+        # print(f"MOVING FILE -> {src_file}")
+        # print()
+        # print(f"TO FOLDER -> {dst_folder}")
+        # print()
+        file_name_with_ext = os.path.basename(src_file)
+        dst_string = os.path.join(dst_folder, file_name_with_ext)
+        if os.path.exists(dst_string):
+            random_digit = int(datetime.now(timezone.utc).timestamp()) + random.randint(
+                0, 99999999
+            )
+            dst_string = os.path.join(
+                dst_folder, f"{random_digit}_{file_name_with_ext}"
+            )
+
+        shutil.move(src_file, dst_string)
+
     except Exception as e:
         print()
-        print("--ERROR--", "FUNCTION:", error_function_name)
+        print(
+            "--ERROR--\n",
+            "FUNCTION:",
+            error_function_name,
+            f"\nsrc:{src_file}",
+            f"\ndst:{dst_folder}",
+        )
         print(e)
         print()
 
