@@ -1,105 +1,109 @@
-# Walks through directory and subdirectory and moves all files to master folder
+import hashlib
 import os
 import re
-from os_helpers import create_folder, create_dst_path, item_to_dst, os_walk
-import hashlib
-from constants import all_media_types, types_to_ignore, all_audio_types
+import time
+
 from magic import Magic
 
+from constants import all_audio_types, all_media_types, types_to_ignore
+from os_helpers import create_folder, item_to_dst, os_walk
 
 magic_mime = Magic(mime=True)
 
 
-def move_all_files_to_one_master_folder(src: str, dst: str) -> str:
+def timer_decorator(func):
+    def wrapper(*args, **kwargs):
+        start_time = time.time()
+        result = func(*args, **kwargs)
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+        minutes = int(elapsed_time // 60)
+        seconds = int(elapsed_time % 60)
+        print(f"Elapsed time: {minutes} minutes and {seconds} seconds")
+        return result
+
+    return wrapper
+
+
+def count_files(folder: str) -> int:
+    count = 0
+    for root, _, files in os.walk(folder):
+        for f in files:
+            if os.path.isfile(os.path.join(root, f)):
+                count += 1
+    return count
+
+
+def move_all_files_to_one_master_folder(src: str, dst: str) -> None:
     """
-    Create a new master folder and 2 subfolders called UNIQUE and DUP
-    Moves all files to the correct folder and keeps count of unique and dups
+    Moves all files from the source directory to the destination directory,
+    categorizing unique and duplicate files.
 
-    Returns path to clean folder
+    Args:
+        src (str): Source directory path.
+        dst (str): Destination directory path.
 
+    Returns:
+        None
     """
-    # Creates Destination, Destination/UNIQUE, Destination/DUP
-
-    unique_folder, dup_folder = f"{dst}/UNIQUE/", f"{dst}/DUPS/"
+    unique_folder = os.path.join(dst, "UNIQUE")
+    dup_folder = os.path.join(dst, "DUPS")
     create_folder(dst)
     create_folder(unique_folder)
     create_folder(dup_folder)
 
     files = os_walk(src)
-    # print(f"------About to move all files from {src} to {dst} ------")
 
     # Hashing is used to check for duplicates
     hashes = {}
     total_unique_count = 0
     total_dup_count = 0
-    i = 0
-    for file in files:
+
+    for i, file in enumerate(files):
         # Optimization: Might be able to use less mem up by only checking parts of a hash?
+
         file_hash = hashlib.sha1(open(file, "rb").read()).hexdigest()
         hashes[file_hash] = hashes.get(file_hash, 0) + 1
 
         # This means this is the first time we've seen the file
         if hashes[file_hash] == 1:
-            dst = f"{unique_folder}/"
-            item_to_dst(
-                file,
-                unique_folder,
-                "move_all_files_to_one_master_folder--if hashes[file_hash] == 1",
-            )
+            destination = unique_folder
             total_unique_count += 1
-            # if not unique_count % 300:
-            #     print(f"{unique_count} Files Moved")
-            # res[unique_file_name] = res.get(unique_file_name, 0) + 1
-
         else:
-            # We are in duplicate territory
-            # dup_count = hashes[file_hash]
-            # dup_file_name = f"{dup_folder}/__{cur_count}__{base_file_name}"
-
-            item_to_dst(
-                file,
-                dup_folder,
-                "move_all_files_to_one_master_folder--else statement",
-            )
+            destination = dup_folder
             total_dup_count += 1
 
-        i += 1
-        if not i % 300:
-            print(f"{i} files done")
-    #         res[dup_file_name] = res.get(dup_file_name, 0) + 1
-    # for item, count in res.items():
-    #     if count > 1:
-    #         print(item, count)
-    # print("RESLEN", len(res))
+        item_to_dst(file, destination, "move_all_files_to_one_master_folder")
+
+        if (i + 1) % 300 == 0:
+            print(f"{i + 1} files processed")
 
     print(f"{total_unique_count} unique files moved")
     print(f"{total_dup_count} duplicate files moved")
-    print(f"{total_dup_count+total_unique_count} total files moved")
+    print(f"{total_dup_count + total_unique_count} total files moved")
     print("")
-    # Returns path to clean_folder for next function
-    # return clean_folder
 
 
-def separate_based_on_file_type(src: str):
+def separate_based_on_file_type(src: str) -> None:
     """
-    Goes through the clean folder and organizes files into MEDIA and MISC
-    We check the type of file 2 ways (MIME and file_extension)
-    The reason for doing both is MIME picks up that might not have extension but are media
-    File_extension picks up any media the MIME missed b/c it got a default result "application/octet-stream"
+    Separates files into Media, Audio, and Misc folders based on file type.
 
+    Args:
+        src (str): Source directory path.
+
+    Returns:
+        None
     """
-    media_folder, misc_folder, audio_folder = (
-        f"{src}/Media/",
-        f"{src}/Misc/",
-        f"{src}/Audio/",
-    )
+    media_folder = os.path.join(src, "Media")
+    audio_folder = os.path.join(src, "Audio")
+    misc_folder = os.path.join(src, "Misc")
     create_folder(media_folder)
-    create_folder(misc_folder)
     create_folder(audio_folder)
+    create_folder(misc_folder)
 
     files = os_walk(src)
-    i = 0
-    for file in files:
+
+    for i, file in enumerate(files):
         try:
             file_type = magic_mime.from_file(file)
         except Exception as e:
@@ -107,8 +111,10 @@ def separate_based_on_file_type(src: str):
             print("-------")
             print(e, file)
             print("-------")
+
         file_extension = os.path.splitext(file)[1]
-        # Optimization: Separate audio and pdfs
+        is_audio = file_extension in all_audio_types or file_type.startswith("audio")
+
         if (
             file_extension
             and file_extension not in types_to_ignore
@@ -116,38 +122,32 @@ def separate_based_on_file_type(src: str):
             and (
                 file_type.startswith("image")
                 or file_type.startswith("video")
-                or file_type.startswith("audio")
+                or is_audio
                 or file_extension in all_media_types
             )
         ):
-            dst_folder = (
-                media_folder
-                if not file_type.startswith("audio")
-                and file_extension not in all_audio_types
-                else audio_folder
-            )
-            item_to_dst(
-                file,
-                dst_folder,
-                "separate_based_on_file_type--image or video or audio",
-            )
+            destination = media_folder if not is_audio else audio_folder
+            item_to_dst(file, destination, "separate_based_on_file_type")
         else:
-            item_to_dst(
-                file,
-                misc_folder,
-                "separate_based_on_file_type--misc",
-            )
-        i += 1
-        if not i % 300:
-            print(f"{i} files done")
+            item_to_dst(file, misc_folder, "separate_based_on_file_type")
+
+        if (i + 1) % 300 == 0:
+            print(f"{i + 1} files processed")
 
 
-def create_folder_for_year_and_move_files(src: str, year_dict: dict):
+def create_folder_for_year_and_move_files(src: str, year_dict: dict) -> None:
     """
-    Takes in the Media folder and creates a folder for each year
+    Creates year-based folders and moves files to respective folders.
+
+    Args:
+        src (str): Source directory path.
+        year_dict (dict): Dictionary containing years and associated media files.
+
+    Returns:
+        None
     """
     for year, media_list in year_dict.items():
-        year_folder = f"{src}/{year}"
+        year_folder = os.path.join(src, str(year))
         create_folder(year_folder)
         for file in media_list:
             item_to_dst(file, year_folder, "create_folder_for_year_and_move_files")

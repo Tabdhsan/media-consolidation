@@ -1,23 +1,26 @@
-import errno, os, stat, shutil
+import errno
+import os
 import random
+import shutil
+import stat
 from datetime import datetime, timezone
-import time
 
 
 def os_walk(src: str, get_list: bool = False) -> list:
     """
-    Brief function description goes here.
+    Recursively walk through directories and return file paths or [file path, file name] pairs.
 
-    ARGS:
-        src: string of starting folder
-        get_list: boolean that chooses what format to return res
+    Args:
+        src (str): Starting folder path
+        get_list (bool, optional): Boolean to choose the format of return. Defaults to False.
 
-    :return: [filePath ...] or [[filePath, fileName]...]
+    Returns:
+        list: List of file paths or [file path, file name] pairs
     """
     res = []
     for root, _, files in os.walk(src):
         for name in files:
-            # Either appends the filePath or [filePath, fileName]
+            # Either appends the file path or [file path, file name]
             file = (
                 os.path.join(root, name)
                 if not get_list
@@ -29,11 +32,12 @@ def os_walk(src: str, get_list: bool = False) -> list:
 
 def handle_remove_read_only(func, path, exc):
     """
-    Helper function given to shutil.rmtree for on error
-    ex.  shutil.rmtree(filename, ignore_errors=False, onerror=handle_remove_read_only)
+    Helper function given to shutil.rmtree for handling errors when removing files.
 
-    Using this makes sure readonly files and files with data inside can be deleted
-
+    Args:
+        func: Operation function (os.rmdir or os.remove)
+        path: Path to the file or directory
+        exc: Exception information
     """
     excvalue = exc[1]
     if func in (os.rmdir, os.remove) and excvalue.errno == errno.EACCES:
@@ -43,10 +47,12 @@ def handle_remove_read_only(func, path, exc):
         raise
 
 
-# TODOTAB: Might not even be used
 def remove_empty_folders(src: str):
     """
-    Removes all empty folders and accounts for errors as well via "handle_remove_read_only"
+    Removes all empty folders and handles errors using "handle_remove_read_only".
+
+    Args:
+        src (str): Folder path
     """
     walk = list(os.walk(src))
     for path, _, _ in walk[::-1]:
@@ -59,12 +65,24 @@ def remove_empty_folders(src: str):
                 print(f"Could not delete {path}", error)
 
 
-# Optimization: Can be run conditionally based on whether checked in GUI
 def create_directory_copy(src: str, dst: str):
+    """
+    Creates a copy of a directory.
+
+    Args:
+        src (str): Source directory path
+        dst (str): Destination directory path
+    """
     shutil.copytree(src, dst)
 
 
 def create_folder(path: str):
+    """
+    Creates a folder if it doesn't exist.
+
+    Args:
+        path (str): Folder path to create
+    """
     if not os.path.exists(path):
         os.makedirs(path)
 
@@ -75,23 +93,14 @@ def create_dst_path(src, dst, dup_count=0):
 
 def item_to_dst(src_file: str, dst_folder: str, error_function_name: str = ""):
     """
-        Moves a file or folder to a new location
-        SRC can be a file or a folder
-        DST is a file
-        Adds a timestamp on the end to make sure the file is unique
+    Moves a file or folder to a new location. Adds a timestamp to ensure uniqueness.
 
-    ARGS:
-        src can be a folder or a file
-        dst is a string for the dst location
-        error_function_name is where the helper function was used (for debugging)
-
+    Args:
+        src_file (str): Source file or folder path
+        dst_folder (str): Destination folder path
+        error_function_name (str, optional): Name of the calling function (for debugging). Defaults to "".
     """
     try:
-        # print()
-        # print(f"MOVING FILE -> {src_file}")
-        # print()
-        # print(f"TO FOLDER -> {dst_folder}")
-        # print()
         file_name_with_ext = os.path.basename(src_file)
         dst_string = os.path.join(dst_folder, file_name_with_ext)
         if os.path.exists(dst_string):
@@ -105,9 +114,8 @@ def item_to_dst(src_file: str, dst_folder: str, error_function_name: str = ""):
         shutil.move(src_file, dst_string)
 
     except Exception as e:
-        print()
         print(
-            "--ERROR--\n",
+            "\n--ERROR--\n",
             "FUNCTION:",
             error_function_name,
             f"\nsrc:{src_file}",
@@ -117,7 +125,6 @@ def item_to_dst(src_file: str, dst_folder: str, error_function_name: str = ""):
         print()
 
 
-# TODOTAB: Might not even be used
 def get_folder_size(folder):
     size = 0
     for path, _, files in os.walk(folder):
