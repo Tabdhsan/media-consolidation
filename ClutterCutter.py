@@ -44,4 +44,4 @@ def Clutter_Cutter():
 
 
 if __name__ == "__main__":
-    Media_Consolidation()
+    Clutter_Cutter()
